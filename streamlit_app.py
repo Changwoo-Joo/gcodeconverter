@@ -13,7 +13,7 @@ import tempfile
 import os
 
 # ------------------- Password gate -------------------
-PASSWORD = "changeme"  # 🔑  <—  Edit this to your desired password
+PASSWORD = "**1.darobotics.net"  # 🔑  <—  Edit this to your desired password
 
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
