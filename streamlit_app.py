@@ -22,9 +22,8 @@ if not st.session_state.authenticated:
             st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-st.title("🛠️ STL → G‑code")
-st.markdown("""Upload an STL file, adjust options, and download the generated G‑code.
-The numerical kernel is identical to the desktop PyQt version.""")
+st.title("🛠️ STL → G‑code 컨버터")
+st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에 따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
 
 def trim_segment_end(segment, trim_distance=30.0):
     segment = np.array(segment)
