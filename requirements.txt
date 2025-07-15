@@ -1,5 +1,6 @@
 streamlit
 numpy
 trimesh
+PyQt5
 scipy
 networkx
