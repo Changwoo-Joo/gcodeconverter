@@ -5,7 +5,7 @@ import trimesh
 import tempfile
 import os
 
-PASSWORD = "changeme"
+PASSWORD = "darobotics*"
 
 # 인증 상태를 session_state로 유지
 if "authenticated" not in st.session_state:
