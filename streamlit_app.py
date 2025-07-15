@@ -22,7 +22,9 @@ if not st.session_state.authenticated:
             st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-st.title("🛠️ STL → G‑code (Streamlit)")
+st.title("🛠️ STL → G‑code")
+st.markdown("""Upload an STL file, adjust options, and download the generated G‑code.
+The numerical kernel is identical to the desktop PyQt version.""")
 
 def trim_segment_end(segment, trim_distance=30.0):
     segment = np.array(segment)
