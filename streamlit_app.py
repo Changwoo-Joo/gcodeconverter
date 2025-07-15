@@ -137,7 +137,7 @@ def generate_gcode(mesh,
 # ------------------------------------------------------------
 #  Streamlit UI
 # ------------------------------------------------------------
-st.title("🛠️ G-code Converter (Dong-A Robotics)")
+st.title("🛠️ G-code 컨버터(동아로보틱스)")
 st.markdown("""Upload an STL file, adjust options, and download the generated G‑code.
 The numerical kernel is identical to the desktop PyQt version.""")
 
