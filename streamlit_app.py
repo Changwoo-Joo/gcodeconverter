@@ -137,9 +137,8 @@ def generate_gcode(mesh,
 # ------------------------------------------------------------
 #  Streamlit UI
 # ------------------------------------------------------------
-st.title("🛠️ G-code 컨버터(동아로보틱스)")
-st.markdown("""Upload an STL file, adjust options, and download the generated G‑code.
-The numerical kernel is identical to the desktop PyQt version.""")
+st.title("🛠️ G-code 컨버터")
+st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
 
 st.sidebar.header("⚙️ Parameters")
 z_int        = st.sidebar.number_input("Z interval (mm)",  1.0, 1000.0, 30.0)
