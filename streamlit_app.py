@@ -7,7 +7,6 @@ from trimesh.intersections import slice_mesh_plane
 
 PASSWORD = "darobotics*"
 
-# 인증 상태를 session_state로 유지
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -78,7 +77,7 @@ def generate_gcode(mesh,
 
     while z <= z_max + 1e-6:
         path3d = slice_mesh_plane(mesh, plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-        if path3d is None or len(path3d.entities) == 0:
+        if path3d is None or len(path3d.discrete) == 0:
             z += z_int
             continue
 
