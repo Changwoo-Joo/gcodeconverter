@@ -177,7 +177,7 @@ if uploaded is not None:
         mesh = trimesh.load_mesh(tmp_path)
         st.success("STL loaded successfully ✅")
 
-        # ✅ 자동 돌출 기능
+        # ✅ 자동 돌출 기능 시작
         z_max = mesh.bounds[1][2]
         tol = 1e-5
         top_faces = []
@@ -185,7 +185,7 @@ if uploaded is not None:
             if all(abs(mesh.vertices[i][2] - z_max) < tol for i in f):
                 top_faces.append(f)
 
-        if top_faces:
+        if len(top_faces) > 0:
             new_faces = []
             new_vertices = []
 
@@ -199,21 +199,12 @@ if uploaded is not None:
                 new_vertices.extend([v0u, v1u, v2u])
                 new_faces.append([base, base + 1, base + 2])
 
-                # 옆면
-                for (a, b, au, bu) in [(v0, v1, v0u, v1u), (v1, v2, v1u, v2u), (v2, v0, v2u, v0u)]:
-                    i0 = len(mesh.vertices) + len(new_vertices)
-                    new_vertices.extend([a, b])
-                    i1 = base + [v0u, v1u, v2u].index(au)
-                    i2 = base + [v0u, v1u, v2u].index(bu)
-                    new_faces.append([i0, i2, i1])
-                    new_faces.append([i0, i1+1, i2])
-
             extruded = trimesh.Trimesh(vertices=np.array(new_vertices), faces=np.array(new_faces))
             mesh = trimesh.util.concatenate([mesh, extruded])
             st.info("Z최대면에서 0.01mm 돌출된 얇은 판이 자동으로 추가되었습니다.")
         else:
             st.warning("Z최대면이 감지되지 않아 보정되지 않았습니다.")
-        # ✅ 끝
+        # ✅ 자동 돌출 기능 끝
 
     except Exception as e:
         st.error(f"Failed to load STL: {e}")
