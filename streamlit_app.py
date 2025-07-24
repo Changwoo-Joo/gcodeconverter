@@ -2,28 +2,27 @@ import streamlit as st
 import numpy as np
 import trimesh
 import tempfile
-import os
 from trimesh.intersections import slice_mesh_plane
 
 PASSWORD = "darobotics*"
 
 # ---------------- 인증 ----------------
-def try_login(pwd_input):
-    if pwd_input == PASSWORD:
+def try_login():
+    if st.session_state.get("pwd_input", "") == PASSWORD:
         st.session_state.authenticated = True
         st.rerun()
     else:
-        st.session_state["auth_fail"] = True
+        st.session_state.auth_fail = True
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     st.title("🔒 비밀번호 입력")
-    pwd = st.text_input("비밀번호를 입력하세요", type="password", on_change=try_login, args=(st.session_state.get("pwd_try", ""),), key="pwd_try")
+    st.text_input("비밀번호를 입력하세요", type="password", key="pwd_input", on_change=try_login)
     if st.button("로그인"):
-        try_login(st.session_state["pwd_try"])
-    if st.session_state.get("auth_fail"):
+        try_login()
+    if st.session_state.get("auth_fail", False):
         st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
@@ -88,7 +87,12 @@ def generate_gcode(mesh,
             z += z_int
             continue
 
-        slice2D, to3D = path3d.to_2D()
+        try:
+            slice2D = path3d.project([0, 0, 1])  # 안전한 2D 변환
+        except:
+            z += z_int
+            continue
+
         if len(slice2D.discrete) == 0:
             z += z_int
             continue
@@ -96,12 +100,8 @@ def generate_gcode(mesh,
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
-            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
+            seg3d = np.column_stack((seg, np.full(len(seg), z)))
             segments.append(seg3d)
-
-        if not segments:
-            z += z_int
-            continue
 
         g.append(f"\n; ---------- Z = {z:.1f} mm ----------")
 
