@@ -6,29 +6,25 @@ import os
 
 PASSWORD = "darobotics*"
 
-# 로그인 상태 관리
+# 인증 상태 초기화
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 엔터로 로그인 가능
-def login():
-    if st.session_state.get("password_input", "") == PASSWORD:
-        st.session_state.authenticated = True
-        st.rerun()
-    else:
-        st.session_state.authenticated = False
-        st.error("❌ 비밀번호가 틀렸습니다.")
-
 if not st.session_state.authenticated:
     st.title("🔒 비밀번호 입력")
-    st.text_input("비밀번호를 입력하세요", type="password", key="password_input", on_change=login)
+    with st.form("login_form"):
+        pwd = st.text_input("비밀번호를 입력하세요", type="password")
+        submitted = st.form_submit_button("로그인")
+        if submitted and pwd == PASSWORD:
+            st.session_state.authenticated = True
+            st.experimental_rerun()
+        elif submitted:
+            st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# 타이틀
 st.title("🛠️ STL → G‑code 컨버터")
-st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에 따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우 부장(010-6754-2575)로 연락해주세요.""")
+st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에 따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
 
-# 보조 함수들
 def trim_segment_end(segment, trim_distance=30.0):
     segment = np.array(segment)
     total_len = np.sum(np.linalg.norm(np.diff(segment, axis=0), axis=1))
@@ -79,20 +75,25 @@ def generate_gcode(mesh,
     z_max = mesh.bounds[1, 2]
     prev_start_xy = None
 
-    for z in np.arange(z_int, z_max + 0.001, z_int):  # z_max 포함
-        section = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-        if section is None:
+    z = z_int
+    while z <= z_max + 1e-4:  # 포함 보장
+        sec = mesh.section(plane_origin=[0,0,z], plane_normal=[0,0,1])
+        if sec is None:
+            z += z_int
             continue
         try:
-            slice2D, to3D = section.to_2D()
+            slice2D, to3D = sec.to_2D()
         except:
+            z += z_int
             continue
+
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
-            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg), 1)), np.ones((len(seg), 1))]).T).T[:, :3]
+            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
             segments.append(seg3d)
         if not segments:
+            z += z_int
             continue
 
         g.append(f"\n; ---------- Z = {z:.1f} mm ----------")
@@ -106,10 +107,10 @@ def generate_gcode(mesh,
             ref_pt_layer = np.array(ref_pt_user)
 
         for i_seg, seg3d in enumerate(segments):
-            shifted, _ = shift_to_nearest_start(seg3d, ref_pt_layer)
-            trimmed = trim_segment_end(shifted, trim_dist)
-            simplified = simplify_segment(trimmed, min_spacing)
-            start = simplified[0]
+            shifted, _  = shift_to_nearest_start(seg3d, ref_pt_layer)
+            trimmed     = trim_segment_end(shifted, trim_dist)
+            simplified  = simplify_segment(trimmed, min_spacing)
+            start       = simplified[0]
 
             g.append(f"G01 F{feed}")
             if start_e_on:
@@ -129,13 +130,14 @@ def generate_gcode(mesh,
 
             if i_seg == 0:
                 prev_start_xy = start[:2]
+        z += z_int
 
     g.append(f"G01 F{feed}")
     if m30_on:
         g.append("M30")
     return "\n".join(g)
 
-# 사이드바
+# ------------------------- 사이드바 ----------------------------
 st.sidebar.header("⚙️ Parameters")
 z_int        = st.sidebar.number_input("Z interval (mm)",  1.0, 1000.0, 30.0)
 feed         = st.sidebar.number_input("Feedrate (F)",     1,    100000, 2000)
@@ -153,8 +155,9 @@ trim_dist    = st.sidebar.number_input("Trim/Layer Width (mm)", 0.0, 1000.0, 30.
 min_spacing  = st.sidebar.number_input("Minimum point spacing (mm)", 0.0, 1000.0, 3.0)
 auto_start   = st.sidebar.checkbox("Start next layer near previous start")
 m30_on       = st.sidebar.checkbox("Append M30 at end", value=False)
+st.sidebar.markdown("---")
 
-# 파일 업로드
+# ------------------------ 파일 처리 ---------------------------
 uploaded = st.file_uploader("📂 Upload STL", type=["stl"])
 if uploaded is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".stl") as tmp:
@@ -163,15 +166,12 @@ if uploaded is not None:
 
     try:
         mesh = trimesh.load_mesh(tmp_path)
-
-        # 잘못된 face 제거
-        num_vertices = len(mesh.vertices)
-        mesh.faces = np.array([f for f in mesh.faces if len(f) == 3 and all(i < num_vertices for i in f)])
+        # face 유효성 필터링
+        num_v = len(mesh.vertices)
+        mesh.faces = np.array([f for f in mesh.faces if len(f) == 3 and all(i < num_v for i in f)])
         if len(mesh.faces) == 0:
-            raise ValueError("STL에 유효한 삼각형 face가 없습니다.")
-
+            raise ValueError("유효한 삼각형 face가 없습니다.")
         st.success("STL loaded successfully ✅")
-
     except Exception as e:
         st.error(f"Failed to load STL: {e}")
         st.stop()
