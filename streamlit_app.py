@@ -7,15 +7,16 @@ from trimesh.intersections import slice_mesh_plane
 PASSWORD = "darobotics*"
 
 # ---------------- 인증 ----------------
-def try_login():
-    if st.session_state.get("pwd_input", "") == PASSWORD:
-        st.session_state.authenticated = True
-        st.rerun()
-    else:
-        st.session_state.auth_fail = True
-
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "pwd_input" not in st.session_state:
+    st.session_state.pwd_input = ""
+
+def try_login():
+    if st.session_state.pwd_input == PASSWORD:
+        st.session_state.authenticated = True
+    else:
+        st.session_state.auth_fail = True
 
 if not st.session_state.authenticated:
     st.title("🔒 비밀번호 입력")
@@ -26,9 +27,9 @@ if not st.session_state.authenticated:
         st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ---------------- 메인 앱 ----------------
+# ---------------- 메인 UI ----------------
 st.title("🛠️ STL → G‑code 컨버터")
-st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에 따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
+st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
 
 def trim_segment_end(segment, trim_distance=30.0):
     segment = np.array(segment)
@@ -84,16 +85,18 @@ def generate_gcode(mesh,
     while z <= z_max + 1e-6:
         path3d = slice_mesh_plane(mesh, plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
         if path3d is None:
+            print(f"[WARN] No path3d at Z={z:.2f}")
             z += z_int
             continue
 
         try:
-            slice2D = path3d.project([0, 0, 1])  # 안전한 2D 변환
-        except:
-            z += z_int
-            continue
-
-        if len(slice2D.discrete) == 0:
+            slice2D = path3d.project([0, 0, 1])
+            if not slice2D or len(slice2D.discrete) == 0:
+                print(f"[INFO] No curves at Z={z:.2f}")
+                z += z_int
+                continue
+        except Exception as e:
+            print(f"[ERROR] Failed to project at Z={z:.2f}: {e}")
             z += z_int
             continue
 
@@ -102,6 +105,11 @@ def generate_gcode(mesh,
             seg = np.array(seg)
             seg3d = np.column_stack((seg, np.full(len(seg), z)))
             segments.append(seg3d)
+
+        if not segments:
+            print(f"[INFO] Empty segments at Z={z:.2f}")
+            z += z_int
+            continue
 
         g.append(f"\n; ---------- Z = {z:.1f} mm ----------")
 
@@ -166,7 +174,7 @@ m30_on       = st.sidebar.checkbox("Append M30 at end", value=False)
 
 st.sidebar.markdown("---")
 
-# ----------- Main Body ----------
+# ----------- 메인 처리 ----------
 uploaded = st.file_uploader("📂 Upload STL", type=["stl"])
 if uploaded is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".stl") as tmp:
