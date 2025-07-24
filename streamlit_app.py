@@ -7,20 +7,27 @@ from trimesh.intersections import slice_mesh_plane
 
 PASSWORD = "darobotics*"
 
+# ---------------- 인증 ----------------
+def try_login(pwd_input):
+    if pwd_input == PASSWORD:
+        st.session_state.authenticated = True
+        st.rerun()
+    else:
+        st.session_state["auth_fail"] = True
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     st.title("🔒 비밀번호 입력")
-    pwd = st.text_input("비밀번호를 입력하세요", type="password")
+    pwd = st.text_input("비밀번호를 입력하세요", type="password", on_change=try_login, args=(st.session_state.get("pwd_try", ""),), key="pwd_try")
     if st.button("로그인"):
-        if pwd == PASSWORD:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("❌ 비밀번호가 틀렸습니다.")
+        try_login(st.session_state["pwd_try"])
+    if st.session_state.get("auth_fail"):
+        st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
+# ---------------- 메인 앱 ----------------
 st.title("🛠️ STL → G‑code 컨버터")
 st.markdown("""STL파일을 업로드해주세요. 좌측 파라미터에서 Z값과 속도, 시작점을 지정해주세요. 옵션을 지정하면 지정된 옵션에 따라 경로가 생성됩니다. 궁금하신 사항은 동아로보틱스 기술연구소 주창우부장(010-6754-2575)로 연락해주세요.""")
 
@@ -77,16 +84,21 @@ def generate_gcode(mesh,
 
     while z <= z_max + 1e-6:
         path3d = slice_mesh_plane(mesh, plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-        if path3d is None or len(path3d.discrete) == 0:
+        if path3d is None:
             z += z_int
             continue
 
         slice2D, to3D = path3d.to_2D()
+        if len(slice2D.discrete) == 0:
+            z += z_int
+            continue
+
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
             seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
             segments.append(seg3d)
+
         if not segments:
             z += z_int
             continue
