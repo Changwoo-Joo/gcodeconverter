@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import trimesh
@@ -75,17 +74,20 @@ def generate_gcode(mesh,
     z_max = mesh.bounds[1, 2]
     prev_start_xy = None
 
-    for z in np.arange(z_int, int(z_max) + 1, z_int):
-        sec = mesh.section(plane_origin=[0,0,z], plane_normal=[0,0,1])
+    z = z_int
+    while z <= z_max + 1e-6:  # float 오차 보정 포함
+        sec = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
         if sec is None:
+            z += z_int
             continue
         slice2D, to3D = sec.to_2D()
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
-            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
+            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg), 1)), np.ones((len(seg), 1))]).T).T[:, :3]
             segments.append(seg3d)
         if not segments:
+            z += z_int
             continue
 
         g.append(f"\n; ---------- Z = {z:.1f} mm ----------")
@@ -99,10 +101,10 @@ def generate_gcode(mesh,
             ref_pt_layer = np.array(ref_pt_user)
 
         for i_seg, seg3d in enumerate(segments):
-            shifted, _  = shift_to_nearest_start(seg3d, ref_pt_layer)
-            trimmed     = trim_segment_end(shifted, trim_dist)
-            simplified  = simplify_segment(trimmed, min_spacing)
-            start       = simplified[0]
+            shifted, _ = shift_to_nearest_start(seg3d, ref_pt_layer)
+            trimmed = trim_segment_end(shifted, trim_dist)
+            simplified = simplify_segment(trimmed, min_spacing)
+            start = simplified[0]
 
             g.append(f"G01 F{feed}")
             if start_e_on:
@@ -123,11 +125,14 @@ def generate_gcode(mesh,
             if i_seg == 0:
                 prev_start_xy = start[:2]
 
+        z += z_int
+
     g.append(f"G01 F{feed}")
     if m30_on:
         g.append("M30")
     return "\n".join(g)
 
+# ----------- Sidebar UI ----------
 st.sidebar.header("⚙️ Parameters")
 z_int        = st.sidebar.number_input("Z interval (mm)",  1.0, 1000.0, 30.0)
 feed         = st.sidebar.number_input("Feedrate (F)",     1,    100000, 2000)
@@ -141,13 +146,14 @@ start_e_val  = st.sidebar.number_input("Start E value", value=0.1, disabled=not 
 e0_on        = st.sidebar.checkbox("Add E0 at loop end", value=False, disabled=not e_on)
 
 st.sidebar.subheader("Path processing")
-trim_dist    = st.sidebar.number_input("Trim/Layer Radius (mm)", 0.0, 1000.0, 30.0)
+trim_dist    = st.sidebar.number_input("Trim/Layer Width (mm)", 0.0, 1000.0, 30.0)
 min_spacing  = st.sidebar.number_input("Minimum point spacing (mm)", 0.0, 1000.0, 3.0)
 auto_start   = st.sidebar.checkbox("Start next layer near previous start")
 m30_on       = st.sidebar.checkbox("Append M30 at end", value=False)
 
 st.sidebar.markdown("---")
 
+# ----------- Main Body ----------
 uploaded = st.file_uploader("📂 Upload STL", type=["stl"])
 if uploaded is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".stl") as tmp:
