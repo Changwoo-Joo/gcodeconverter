@@ -3,6 +3,7 @@ import numpy as np
 import trimesh
 import tempfile
 import os
+from trimesh.intersections import slice_mesh_plane
 
 PASSWORD = "darobotics*"
 
@@ -73,18 +74,19 @@ def generate_gcode(mesh,
 
     z_max = mesh.bounds[1, 2]
     prev_start_xy = None
-
     z = z_int
-    while z <= z_max + 1e-6:  # float 오차 보정 포함
-        sec = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-        if sec is None:
+
+    while z <= z_max + 1e-6:
+        path3d = slice_mesh_plane(mesh, plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+        if path3d is None or len(path3d.entities) == 0:
             z += z_int
             continue
-        slice2D, to3D = sec.to_2D()
+
+        slice2D, to3D = path3d.to_2D()
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
-            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg), 1)), np.ones((len(seg), 1))]).T).T[:, :3]
+            seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
             segments.append(seg3d)
         if not segments:
             z += z_int
