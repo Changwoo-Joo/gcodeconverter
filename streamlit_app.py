@@ -80,12 +80,14 @@ def generate_gcode(mesh, z_int=30.0, feed=2000, ref_pt_user=(0.0, 0.0),
         segments = []
         for seg in slice2D.discrete:
             seg = np.array(seg)
-            # 🔽 Narrow loop filter
-            if merge_narrow_loops and len(seg) >= 4:
-                ys = np.ptp(seg[:, 1])
-                xs = np.ptp(seg[:, 0])
-                if (ys <= 1.0 and xs >= 10) or (xs <= 1.0 and ys >= 10):
-                    seg = np.array([seg[0], seg[2]])  # 양 끝점으로 직선화
+            # 🔽 Narrow loop filter (옵션 켜진 경우에만 적용)
+            if merge_narrow_loops:
+                if len(seg) >= 4:
+                    ys = np.ptp(seg[:, 1])
+                    xs = np.ptp(seg[:, 0])
+                    if (ys <= 1.0 and xs >= 10) or (xs <= 1.0 and ys >= 10):
+                        seg = np.array([seg[0], seg[2]])  # 직선으로 단순화
+
             seg3d = (to3D @ np.hstack([seg, np.zeros((len(seg),1)), np.ones((len(seg),1))]).T).T[:, :3]
             segments.append(seg3d)
         if not segments:
